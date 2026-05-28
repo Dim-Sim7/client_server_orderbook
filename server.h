@@ -24,8 +24,8 @@ private:
     struct sockaddr_storage client_;
     socklen_t client_len_;
     OrderMsg buf_[1024];
-    int seq_;
-    OrderMsg history_[HISTORY_SIZE];
+    uint64_t seq_;
+    std::array<OrderMsg, HISTORY_SIZE> history_;
 
 public:
 
@@ -37,7 +37,7 @@ public:
     Server& operator=(const Server&) = delete;
 
     void run(); //main loop
-
+    std::vector<OrderMsg> makeSampleOrders();
 private:
 
     void initSockets();
@@ -45,8 +45,8 @@ private:
     void initHistory();
     void waitForClient();
 
-    void retransmitPackets(const int from_seq, const int to_seq);
+    void retransmitPackets(const uint64_t from_seq, const uint64_t to_seq);
     void sendSnapshot();
-    void sendPacket();
+    void sendPacket(OrderMsg& order);
     OrderMsg makeTestOrder();
 };

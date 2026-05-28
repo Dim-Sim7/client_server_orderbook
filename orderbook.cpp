@@ -17,8 +17,9 @@ OrderBook& OrderBook::operator=(OrderBook&& other) noexcept {
     return *this;
 }
 
-void OrderBook::addOrder(const int id, const Side side, const std::optional<int> price, const int qty, const OrderType type) {
-    Order incoming{id, side, price, qty, type};
+void OrderBook::addOrder(const uint64_t id, const Side side, const std::optional<int32_t> price, 
+                const uint32_t qty, const OrderType type) {
+    Order incoming{id, qty, price, side,  type};
     matchOrder(incoming);
     if (incoming.qty == 0) return;
     if (type == MARKET) return; // fill or kill
@@ -37,7 +38,7 @@ void OrderBook::addOrder(const int id, const Side side, const std::optional<int>
     else             insert(sellBook);
 }
 
-void OrderBook::cancelOrder(const int id) {
+void OrderBook::cancelOrder(const uint64_t id) {
     // iterator to orderIndex
     const auto it = orderIndex.find(id);
     if (it == orderIndex.end()) return;
@@ -66,15 +67,77 @@ void OrderBook::clear() {
     sellBook.clear();
 }
 
+void OrderBook::print() {
+
+    std::cout << "\033[2J\033[H";
+
+    std::cout << "================ ORDER BOOK ================\n\n";
+
+    std::cout << "BUY BOOK"
+              << std::setw(35) << " "
+              << "SELL BOOK\n";
+
+    std::cout << "------------------------------------------------------------\n";
+
+    auto buyIt = buyBook.begin();
+    auto sellIt = sellBook.begin();
+
+    while (buyIt != buyBook.end() || sellIt != sellBook.end()) {
+        
+        std::stringstream buySS;
+        std::stringstream sellSS;
+        // BUY SIDE
+        if (buyIt != buyBook.end()) {
+            buySS << std::left
+                << std::setw(8)
+                << buyIt->first;
+
+            for (const auto& order : buyIt->second) {
+                buySS << "[" << order.id << ":" << order.qty << "] ";
+            }
+            ++buyIt;
+        }
+        // ---- SELL SIDE ----
+        if (sellIt != sellBook.end()) {
+
+            sellSS << std::left
+                << std::setw(8)
+                << sellIt->first;
+
+            for (const auto& order : sellIt->second) {
+                sellSS << "[" << order.id << ":" << order.qty << "] ";
+            }
+
+            ++sellIt;
+        }
+
+        // fixed-width left column
+        std::cout << std::left
+                << std::setw(35)
+                << buySS.str()
+                << sellSS.str()
+                << "\n";
+    }
+
+    // PRINT TRADES ONCE
+    std::cout << "\n================ TRADES ================\n";
+
+    for (const auto& t : tradeLog_) {
+        std::cout << t;
+    }
+
+    std::cout.flush();
+}
+
 // optional to replace sentinel values
 // forces caller to check if value exists
 // returns either nullopt or the bestBid price
-std::optional<int> OrderBook::bestBid() const {
+std::optional<int32_t> OrderBook::bestBid() const {
     if (buyBook.empty()) return std::nullopt;
     return buyBook.begin()->first;
 }
 
-std::optional<int> OrderBook::bestAsk() const {
+std::optional<int32_t> OrderBook::bestAsk() const {
     if (sellBook.empty()) return std::nullopt;
     return sellBook.begin()->first;
 }
@@ -103,13 +166,3 @@ void OrderBook::matchSell(Order& incoming) {
     }
 }
 
-//returns flat vector of current orderbook
-std::vector<SnapshotOrder> OrderBook::getAllOrders() const {
-    auto all_orders = getSnapshot(buyBook); //compiler infers template type
-    auto sell_orders = getSnapshot(sellBook);
-
-    // merge sell into all_orders
-    all_orders.insert(all_orders.end(), sell_orders.begin(), sell_orders.end());
-
-    return all_orders;
-}

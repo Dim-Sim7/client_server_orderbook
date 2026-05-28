@@ -17,14 +17,15 @@ typedef struct {
     uint8_t  msg_type;   // MSG_ADD, MSG_CANCEL
     uint8_t  side;       // 'B' or 'S'
     uint8_t  order_type; // 'L' or 'M'
-    uint32_t seq;
+    uint8_t  padding;
+    uint64_t seq;
     uint32_t qty;
     int32_t  price;
     uint64_t order_id;
-} __attribute__((packed)) OrderMsg;
+} OrderMsg;
 
 typedef struct {
     uint8_t msg_type;
-    int     from_seq;
-    int     to_seq;
+    uint64_t from_seq;
+    uint64_t to_seq;
 } ClientRequest;

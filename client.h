@@ -5,23 +5,22 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <stdio.h>
-
+#include <optional>
 #include "packet.h"
 #include "orderbook.h"
+#include "packet.h"
 #include <map>
-#include "orderbook.h"
-#include "packet.h"
 #include <unistd.h>
-
+#include <cstdint>
 class Client {
 private:
-    OrderBook book_;
-    uint16_t fd_;
+    OrderBook& book_;
+    int fd_;
     struct sockaddr_in server_;
     struct sockaddr_in retrans_server_;
-    std::map<int, Order> reorder_buffer_;
+    std::map<uint64_t, OrderMsg> reorder_buffer_;
     OrderMsg pkt_; // container for packet data, passed around
-    int expected_seq_;
+    uint64_t expected_seq_;
 
     struct timespec gap_start_;
     bool gap_active_;

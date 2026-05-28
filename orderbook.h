@@ -1,5 +1,6 @@
 #pragma once
 
+#include <deque>
 #include <list>
 #include <map>
 #include <unordered_map>
@@ -12,15 +13,17 @@
 #include <vector>
 #include <iostream>
 #include "packet.h"
-
+#include <iomanip>
+#include <deque>
+#include <sstream>
 enum Side {BUY, SELL};
 enum OrderType { LIMIT, MARKET };
 
 struct Order{
-    int id;
+    uint64_t id;
+    uint32_t qty;
+    std::optional<int32_t> price; // nullopt for market orders
     Side side;
-    std::optional<int> price; // nullopt for market orders
-    int qty;
     OrderType type;
 };  
 
@@ -40,11 +43,13 @@ class OrderBook {
         // Linked list implementation -- bad for cache
         using OrderList = std::list<Order>;
         // BUY: highest price first
-        std::map<int, OrderList, std::greater<int>> buyBook;
+        std::map<int32_t, OrderList, std::greater<int32_t>> buyBook;
         // SELL: lowest price first
-        std::map<int, OrderList> sellBook;
+        std::map<int32_t, OrderList> sellBook;
         // order_id -> (side, price, iterator into list)
-        std::unordered_map<int, std::tuple<Side, int, OrderList::iterator>> orderIndex;
+        std::unordered_map<uint64_t, std::tuple<Side, int32_t, OrderList::iterator>> orderIndex;
+
+        std::deque<std::string> tradeLog_;
 
     public:
         OrderBook() = default;
@@ -56,17 +61,17 @@ class OrderBook {
         OrderBook(const OrderBook&) = delete;
         OrderBook& operator=(const OrderBook&) = delete;
 
-        void addOrder(const int id, const Side side, const std::optional<int> price, 
-            const int qty, const OrderType type);
+        void addOrder(const uint64_t id, const Side side, const std::optional<int32_t> price, 
+            const uint32_t qty, const OrderType type);
   
-        void cancelOrder(const int id);
+        void cancelOrder(const uint64_t id);
         void clear();
+        void print();
         // optional to replace sentinel values
         // forces caller to check if value exists
-        std::optional<int> bestBid() const;
-        std::optional<int> bestAsk() const;
+        std::optional<int32_t> bestBid() const;
+        std::optional<int32_t> bestAsk() const;
         std::vector<OrderMsg> getAllOrders() const;
-
     private:
         void matchOrder(Order& incoming);
 
@@ -76,22 +81,33 @@ class OrderBook {
 
         template<typename Book>
         void trade(Order& incoming, Book& book) {
+
             auto levelIt = book.begin();     // iterator to first element in buy or sell book
+
             auto& orders = levelIt->second;  // iterator to orders linked list at price level
+            
             auto restingIt = orders.begin(); // iterator to first order in list
 
-            const int traded = std::min(incoming.qty, restingIt->qty); 
+            const uint32_t traded = std::min(incoming.qty, restingIt->qty); 
             incoming.qty -= traded;
             restingIt->qty -= traded;
 
-            std::cout << "TRADE aggressor= " << incoming.id
+            std::stringstream ss;
+
+            ss << "TRADE "
+                      << "aggressor= " << incoming.id
                       << " resting =" << restingIt->id
                       << " price=" << levelIt->first
                       << " qty=" << traded << "\n";
-                      
+            tradeLog_.push_back(ss.str());
+
+            if (tradeLog_.size() > 10)
+                tradeLog_.pop_front();
             // erase empty order (no qty)
             if (restingIt->qty == 0) {
+
                 orderIndex.erase(restingIt->id);
+                
                 orders.erase(restingIt);
             }
 
