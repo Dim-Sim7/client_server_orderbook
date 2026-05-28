@@ -1,19 +1,13 @@
-#pragma once
 
 #include "orderbook.h"
 
-
-
-OrderBook::OrderBook() {}
-OrderBook::~OrderBook() {}
-
-OrderBook::OrderBook(OrderBook&& other) : 
+OrderBook::OrderBook(OrderBook&& other) noexcept : 
             buyBook(std::move(other.buyBook)),
             sellBook(std::move(other.sellBook)),
             orderIndex(std::move(other.orderIndex))        
 {}
 
-OrderBook& OrderBook::operator=(OrderBook&& other) {
+OrderBook& OrderBook::operator=(OrderBook&& other) noexcept {
     if (this != &other) {
         buyBook    = std::move(other.buyBook);
         sellBook   = std::move(other.sellBook);
@@ -22,8 +16,6 @@ OrderBook& OrderBook::operator=(OrderBook&& other) {
 
     return *this;
 }
-
-
 
 void OrderBook::addOrder(const int id, const Side side, const std::optional<int> price, const int qty, const OrderType type) {
     Order incoming{id, side, price, qty, type};
@@ -68,8 +60,15 @@ void OrderBook::cancelOrder(const int id) {
     else             remove(sellBook);
 }
 
+void OrderBook::clear() {
+    orderIndex.clear();
+    buyBook.clear();
+    sellBook.clear();
+}
+
 // optional to replace sentinel values
 // forces caller to check if value exists
+// returns either nullopt or the bestBid price
 std::optional<int> OrderBook::bestBid() const {
     if (buyBook.empty()) return std::nullopt;
     return buyBook.begin()->first;

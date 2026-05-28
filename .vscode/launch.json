@@ -7,9 +7,9 @@
       "request": "launch",
       "args": [],
       "stopAtEntry": false,
-      "externalConsole": true,
-      "cwd": "//wsl.localhost/Ubuntu/home/dim-sim/workspace/orderbook",
-      "program": "//wsl.localhost/Ubuntu/home/dim-sim/workspace/orderbook/build/Debug/outDebug",
+      "externalConsole": false,
+      "cwd": "/home/dim-sim/workspace/quant_projects/orderbook",
+      "program": "/home/dim-sim/workspace/quant_projects/orderbook/build/Debug/outDebug",
       "MIMode": "gdb",
       "miDebuggerPath": "gdb",
       "setupCommands": [

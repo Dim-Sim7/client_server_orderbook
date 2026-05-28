@@ -14,7 +14,7 @@
 class Server {
 private:
 
-    const static int HISTORY_SIZE = 10000;
+    const static int HISTORY_SIZE = 100;
     
     OrderBook& book_;
     int fd_;
@@ -23,18 +23,16 @@ private:
     struct sockaddr_in retrans_addr_;
     struct sockaddr_storage client_;
     socklen_t client_len_;
-    char buf_[1024];
+    OrderMsg buf_[1024];
     int seq_;
-    char history_[HISTORY_SIZE][64];
-
-    void waitForClient();
+    OrderMsg history_[HISTORY_SIZE];
 
 public:
 
     Server(OrderBook& book);
     ~Server();                  // close socket fd
-    Server(Server&& other);
-    Server& operator=(Server&& other) = delete;
+    Server(Server&& other) = delete;
+    Server& operator=(Server&& other) = delete ;
     Server(const Server&) = delete;
     Server& operator=(const Server&) = delete;
 
@@ -43,7 +41,12 @@ public:
 private:
 
     void initSockets();
-    void bindPort(int port, sockaddr_in& addr, int& fd);
+    void bindPort(uint16_t port, sockaddr_in& addr, int& fd);
     void initHistory();
     void waitForClient();
+
+    void retransmitPackets(const int from_seq, const int to_seq);
+    void sendSnapshot();
+    void sendPacket();
+    OrderMsg makeTestOrder();
 };

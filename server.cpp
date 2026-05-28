@@ -1,5 +1,5 @@
 #include "server.h"
-
+#include <algorithm>
 
 Server::Server(OrderBook& book) : book_(book), seq_(0) {
     initSockets();
@@ -12,22 +12,6 @@ Server::~Server() {
     if (retrans_fd_ != -1) close(retrans_fd_);
 }
 
-Server::Server(Server&& other) : 
-            book_(other.book_),
-            fd_(other.fd_),
-            retrans_fd_(other.retrans_fd_),
-            addr_(other.addr_),
-            retrans_addr_(other.retrans_addr_),
-            client_(other.client_),
-            client_len_(other.client_len_),
-            seq_(other.seq_)
-{   
-    memcpy(buf_, other.buf_, sizeof(buf_));
-    memcpy(history_, other.history_, sizeof(history_));
-
-    other.fd_ = -1;
-    other.retrans_fd_ = -1;
-}
 
 void Server::run() {
     while (true) {
@@ -38,67 +22,58 @@ void Server::run() {
 
         //timeout of 0 = dont block, just check right now
         struct timeval timeout = {0, 0};
-        int ready = select(retrans_fd_ + 1, &read_fds, NULL, NULL, &timeout);
+        int nfds = std::max(fd_, retrans_fd_) + 1;
+        int ready = select(nfds, &read_fds, NULL, NULL, &timeout);
 
         if (ready > 0 && FD_ISSET(retrans_fd_, &read_fds)) {
             // a retransmit request came in
             ClientRequest req;
             recvfrom(retrans_fd_, &req, sizeof(req), 0, NULL, NULL);
-
-            if (req.msg_type == MSG_RETRANSMIT) {
-                //replay those sequence numbers from history
-                for (int i = req.from_seq; i <= req.to_seq; i++) {
-                    Packet* old_pkt = (Packet*)history_[i % HISTORY_SIZE];
-                    old_pkt->msg_type = MSG_RETRANSMIT; //stamp as retransmit
-                    sendto(fd_, old_pkt, sizeof(Packet), 0,
-                        (struct sockaddr*)&client_, client_len_);
-                }
-            }
-            else if (req.msg_type == MSG_SNAPSHOT_REQUEST) {
-                std::vector<SnapshotOrder> allOrders = book_.getAllOrders();
-                //send all orders to client
-                int total = allOrders.size();
-
-                SnapshotPacket pkt;
-                pkt.msg_type = MSG_SNAPSHOT;
-                pkt.snapshot_seq = seq_;
-
-                for (int i = 0; i < total; ++i) {
-                    pkt.orders[i % SNAPSHOT_BATCH_SIZE] = allOrders[i];
-                    if (i % SNAPSHOT_BATCH_SIZE == SNAPSHOT_BATCH_SIZE - 1 || i == total - 1) {
-                        // send
-                        pkt.orders_in_batch = (i % SNAPSHOT_BATCH_SIZE) + 1;
-                        pkt.batches_remaining = (total - i - 1) / SNAPSHOT_BATCH_SIZE;
-                        sendto(fd_, &pkt, sizeof(pkt), 0, (struct sockaddr*)&client_, client_len_);
-                    }
-
-                }
-            }
-
+            //replay those sequence numbers from history
+            retransmitPackets(req.from_seq, req.to_seq);
         }
-
-        // send next live update
-        Packet pkt;
-        pkt.msg_type = MSG_LIVE;
-        pkt.seq      = seq_;
-        snprintf(pkt.data, sizeof(pkt.data), "update seq=%d", seq_);
-
-        // store in history before sending
-        memcpy(history_[seq_ % HISTORY_SIZE], &pkt, sizeof(pkt));
-
-        sendto(fd_, &pkt, sizeof(pkt), 0, (struct sockaddr*)&client_, client_len_);
-
-        seq_++;
-        //usleep(500);
+        sendPacket();
     }
 }
 
-void Server::initSockets() {
-    bindPort(9000, addr_, fd_);
-    bindPort(9001, retrans_addr_, retrans_fd_);
+void Server::retransmitPackets(const int from_seq, const int to_seq) {
+    for (size_t i{static_cast<size_t>(from_seq)}; i <= static_cast<size_t>(to_seq); i++) {
+        Packet* old_pkt = (Packet*)history_[i % HISTORY_SIZE];
+        old_pkt->msg_type = MSG_RETRANSMIT; //stamp as retransmit
+        sendto(fd_, old_pkt, sizeof(Packet), 0, (struct sockaddr*)&client_, client_len_);
+    }
 }
 
-void Server::bindPort(int port, sockaddr_in& addr, int& fd) {
+void Server::sendPacket() {
+    // send next live update
+    OrderMsg order = makeTestOrder();
+    // store in history before sending
+    memcpy(history_[seq_ % HISTORY_SIZE], &order, sizeof(order));
+
+    sendto(fd_, &order, sizeof(order), 0, (struct sockaddr*)&client_, client_len_);
+
+    seq_++;
+    usleep(500);
+}
+
+OrderMsg Server::makeTestOrder() {
+    OrderMsg msg;
+    msg.msg_type   = MSG_ADD;
+    msg.side       = 'B';
+    msg.order_type = 'L';
+    msg.seq        = seq_;
+    msg.qty        = 100;
+    msg.price      = 10000 + (rand() % 100);  // random price around 100.00
+    msg.order_id   = seq_;
+    return msg;
+}
+
+void Server::initSockets() {
+    bindPort(SERVER_PORT, addr_, fd_);
+    bindPort(RETRANS_PORT, retrans_addr_, retrans_fd_);
+}
+
+void Server::bindPort(uint16_t port, sockaddr_in& addr, int& fd) {
     fd = socket(AF_INET, SOCK_DGRAM, 0);  // create socket first
     addr.sin_family = AF_INET;
     addr.sin_port = htons(port);

@@ -10,7 +10,7 @@
 #include <assert.h>
 #include <chrono>
 #include <vector>
-
+#include <iostream>
 #include "packet.h"
 
 enum Side {BUY, SELL};
@@ -37,7 +37,7 @@ class OrderBook {
         // };
 
     private:
-        // Linked list implementation
+        // Linked list implementation -- bad for cache
         using OrderList = std::list<Order>;
         // BUY: highest price first
         std::map<int, OrderList, std::greater<int>> buyBook;
@@ -47,11 +47,11 @@ class OrderBook {
         std::unordered_map<int, std::tuple<Side, int, OrderList::iterator>> orderIndex;
 
     public:
-        OrderBook();
-        ~OrderBook();
+        OrderBook() = default;
+        ~OrderBook() = default;
 
-        OrderBook(OrderBook&& other);
-        OrderBook& operator=(OrderBook&& other);
+        OrderBook(OrderBook&& other) noexcept;
+        OrderBook& operator=(OrderBook&& other) noexcept;
 
         OrderBook(const OrderBook&) = delete;
         OrderBook& operator=(const OrderBook&) = delete;
@@ -59,13 +59,13 @@ class OrderBook {
         void addOrder(const int id, const Side side, const std::optional<int> price, 
             const int qty, const OrderType type);
   
-
         void cancelOrder(const int id);
+        void clear();
         // optional to replace sentinel values
         // forces caller to check if value exists
         std::optional<int> bestBid() const;
         std::optional<int> bestAsk() const;
-        std::vector<SnapshotOrder> getAllOrders() const;
+        std::vector<OrderMsg> getAllOrders() const;
 
     private:
         void matchOrder(Order& incoming);
@@ -100,21 +100,20 @@ class OrderBook {
         }
 
         template<typename Book>
-        std::vector<SnapshotOrder> getSnapshot(Book& book) const {
-            std::vector<SnapshotOrder> all_orders;
+        const std::vector<OrderMsg> getSnapshot(Book& book) const {
+            std::vector<OrderMsg> all_orders;
 
             for (auto& levelIt : book) {
                 for (auto& order : levelIt.second) {
-                    SnapshotOrder o;
+                    OrderMsg o;
                     o.price = order.price.value_or(0);
                     o.qty = order.qty;
-                    o.type = order.type == LIMIT ? 'L' : 'M';
+                    o.order_type = order.type == LIMIT ? 'L' : 'M';
                     o.side = order.side == BUY ? 'B' : 'S';
                     o.order_id = order.id;
-                    all_orders.emplace_back(o);
+                    all_orders.push_back(o);
                 }
             }
-
             return all_orders;
         }
 
