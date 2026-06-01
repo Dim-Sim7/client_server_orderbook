@@ -39,7 +39,7 @@ void Client::receiveRetransmit() {
     // waits for packets to arrive in sequence (expecting 5, pkt 6 arrives - wait. 5 arrives, 5 is here!)
     while (reorder_buffer_.count(expected_seq_)) {
         OrderMsg& buffered = reorder_buffer_[expected_seq_];
-        printf("applying from buffer: %ld\n", buffered.seq);
+        //printf("applying from buffer: %ld\n", buffered.seq);
         int32_t price = buffered.price;
         book_.addOrder(buffered.order_id,
                     buffered.side == 'B' ? Side::BUY : Side::SELL,

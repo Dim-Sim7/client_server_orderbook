@@ -2,7 +2,7 @@
 #include <algorithm>
 #include <thread>
 #include <chrono>
-Server::Server(OrderBook& book) : book_(book), seq_(0) {
+Server::Server() : seq_(0) {
     initSockets();
     initHistory();
     

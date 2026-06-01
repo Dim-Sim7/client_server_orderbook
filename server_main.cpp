@@ -5,10 +5,7 @@
 #include <thread>
 
 int main() {
-    OrderBook server_book;
-
-    
-    Server server(server_book);
+    Server server{};
 
     // run in separate threads
     std::thread server_thread(&Server::run, &server);

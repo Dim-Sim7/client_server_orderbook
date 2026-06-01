@@ -13,7 +13,6 @@ OrderBook& OrderBook::operator=(OrderBook&& other) noexcept {
         sellBook   = std::move(other.sellBook);
         orderIndex = std::move(other.orderIndex);
     }
-
     return *this;
 }
 
@@ -70,20 +69,16 @@ void OrderBook::clear() {
 void OrderBook::print() {
 
     std::cout << "\033[2J\033[H";
-
     std::cout << "================ ORDER BOOK ================\n\n";
-
     std::cout << "BUY BOOK"
               << std::setw(35) << " "
               << "SELL BOOK\n";
-
     std::cout << "------------------------------------------------------------\n";
 
     auto buyIt = buyBook.begin();
     auto sellIt = sellBook.begin();
 
     while (buyIt != buyBook.end() || sellIt != sellBook.end()) {
-        
         std::stringstream buySS;
         std::stringstream sellSS;
         // BUY SIDE
@@ -112,16 +107,11 @@ void OrderBook::print() {
         }
 
         // fixed-width left column
-        std::cout << std::left
-                << std::setw(35)
-                << buySS.str()
-                << sellSS.str()
-                << "\n";
+        std::cout << std::left << std::setw(35) << buySS.str() << sellSS.str() << "\n";
     }
 
     // PRINT TRADES ONCE
     std::cout << "\n================ TRADES ================\n";
-
     for (const auto& t : tradeLog_) {
         std::cout << t;
     }
@@ -129,7 +119,7 @@ void OrderBook::print() {
     std::cout.flush();
 }
 
-// optional to replace sentinel values
+// optional<> to replace sentinel values
 // forces caller to check if value exists
 // returns either nullopt or the bestBid price
 std::optional<int32_t> OrderBook::bestBid() const {

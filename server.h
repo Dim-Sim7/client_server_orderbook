@@ -16,7 +16,7 @@ private:
 
     const static int HISTORY_SIZE = 100;
     
-    OrderBook& book_;
+
     int fd_;
     int retrans_fd_;
     struct sockaddr_in addr_;
@@ -29,7 +29,7 @@ private:
 
 public:
 
-    Server(OrderBook& book);
+    Server();
     ~Server();                  // close socket fd
     Server(Server&& other) = delete;
     Server& operator=(Server&& other) = delete ;
